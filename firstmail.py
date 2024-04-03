@@ -1,8 +1,10 @@
 from requests import Session
-from errors import LoginError
 from typing import Literal
 import base64
 import pyotp
+
+from exceptions import LoginError, ExpiredJWT, GetMessagesError
+from endpoints import endpoints
 
 class Firstmail:
     '''
@@ -34,14 +36,27 @@ class Firstmail:
             except base64.binascii.Error:
                 return otpcode
 
+    def check_jwt(self) -> bool:
+        '''
+        Check JWT for expire
+
+        :returns: true if valid else false
+        '''
+        check_jwt_request = self.__session.post(endpoints['check_jwt'], json={})
+        if check_jwt_request.status_code == 200:
+            return True
+        else:
+            return False
+
     def login(self, email: str, password: str, otpcode: str = None) -> None:
         '''
         Login method
 
-        If you're using account with 2FA, you can provide 6-digits code from your app or secret 2FA key
+        :param email: account's email
+        :param password: account's password
+        :param otpcode: (Optional) 6-digit code or base-32 secret code
         '''
         # Prepairing to request
-        login_url = 'https://api.firstmail.ltd/mail/login/'
         payload = {
             'username': email,
             'password': password
@@ -49,7 +64,7 @@ class Firstmail:
         if otpcode:
             payload['code'] = self.__getotp(otpcode)
         # Request
-        login_request = self.__session.post(login_url, data=payload)
+        login_request = self.__session.post(endpoints['login'], data=payload)
         login_result = login_request.json()
         # Catching errors
         if login_result['error']:
@@ -64,12 +79,23 @@ class Firstmail:
         jwt_token = login_result['jwtToken']
         self.__session.headers['Authorization'] = 'Bearer ' + jwt_token
 
-    def get_messages(self,
-                      folder: Literal['inbox', 'starred', 'spam'] = 'inbox',
-                        check_jwt: bool = False) -> dict[str: int, str: list]:
+    def get_messages(self, folder: Literal['inbox', 'starred', 'spam'] = 'inbox') -> dict[str: int, str: list]:
         '''
         Get messages method
+
+        :param folder: inbox/starred/spam, default inbox
+        :returns: dictionary with count and list of messages
         '''
+        if folder not in ['inbox', 'starred', 'spam']:
+            raise GetMessagesError('Invalid "folder" parameter')
+
+        payload = {
+            'folder': folder
+        }
+        get_messages_request = self.__session.post(endpoints['get_messages'], json=payload)
+        if get_messages_request.status_code == 403:
+            raise ExpiredJWT('Token has expired')
+
 
 
 fm = Firstmail()
