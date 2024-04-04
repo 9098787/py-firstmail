@@ -40,7 +40,7 @@ class Firstmail:
         '''
         Check JWT for expire
 
-        :returns: true if valid else false
+        :returns: true if valid, else false
         '''
         check_jwt_request = self.__session.post(endpoints['check_jwt'], json={})
         if check_jwt_request.status_code == 200:
@@ -93,10 +93,23 @@ class Firstmail:
             'folder': folder
         }
         get_messages_request = self.__session.post(endpoints['get_messages'], json=payload)
-        if get_messages_request.status_code == 403:
+        if get_messages_request.status_code in [403, 500]:
             raise ExpiredJWT('Token has expired')
+        get_messages_result = get_messages_request.json()
+        return get_messages_result
+    
+    def change_password(new_password: str) -> None:
+        '''
+        Change password method
+
+        :param new_password: new password, 8 only ASCII-letters with special chars
+        '''
+
+
 
 
 
 fm = Firstmail()
-fm.login('mariebarnes2018@serodiemail.ru', 'joxbigwg5552', '61994')
+fm.login('charlesortega2014@semiaemail.ru', 'xkpkddtj8497')
+messages = fm.get_messages()
+print(messages)
